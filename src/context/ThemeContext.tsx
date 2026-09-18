@@ -16,12 +16,7 @@ const defaultThemeContext: ThemeContextType = {
   setTheme: () => {},
 };
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const existingContext = useContext(ThemeContext);
-  if (existingContext) {
-    return <>{children}</>;
-  }
-
+function ThemeProviderInner({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     try {
       const saved = localStorage.getItem('mindful_habit_theme');
@@ -66,6 +61,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       {children}
     </ThemeContext.Provider>
   );
+}
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const existingContext = useContext(ThemeContext);
+  if (existingContext) {
+    return <>{children}</>;
+  }
+
+  return <ThemeProviderInner>{children}</ThemeProviderInner>;
 }
 
 export function useTheme() {

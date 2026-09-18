@@ -255,12 +255,12 @@ export default function HabitCompletionChart({ habits }: HabitCompletionChartPro
       </div>
 
       {/* Recharts Chart Area */}
-      <div className="w-full h-48 pt-1" data-purpose="recharts-render-area">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="w-full h-48 min-h-[192px] pt-1" data-purpose="recharts-render-area">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
           {chartMode === 'rate' ? (
             <AreaChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: -22, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
               <defs>
                 <linearGradient id="habitRateGrad" x1="0" y1="0" x2="0" y2="1">
@@ -298,7 +298,7 @@ export default function HabitCompletionChart({ habits }: HabitCompletionChartPro
           ) : (
             <LineChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: -22, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
               <XAxis

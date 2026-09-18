@@ -5,15 +5,8 @@ interface StatusBarProps {
 }
 
 export default function StatusBar({ dark: propDark }: StatusBarProps) {
-  let isDark = propDark;
-  try {
-    const { theme } = useTheme();
-    if (propDark === undefined) {
-      isDark = theme === 'dark';
-    }
-  } catch {
-    // fallback if outside ThemeProvider
-  }
+  const { theme } = useTheme();
+  const isDark = propDark !== undefined ? propDark : theme === 'dark';
 
   const textColor = isDark ? 'text-white' : 'text-slate-900';
   const batteryBorder = isDark ? 'border-white' : 'border-slate-900';

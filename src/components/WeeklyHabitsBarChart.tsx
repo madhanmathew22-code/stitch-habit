@@ -146,11 +146,11 @@ export default function WeeklyHabitsBarChart({ habits }: WeeklyHabitsBarChartPro
       </div>
 
       {/* Recharts Bar Chart Area */}
-      <div className="w-full h-44 pt-2 select-none" data-purpose="barchart-container">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="w-full h-44 min-h-[176px] pt-2 select-none" data-purpose="barchart-container">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={160}>
           <BarChart
             data={data}
-            margin={{ top: 16, right: 8, left: -24, bottom: 0 }}
+            margin={{ top: 16, right: 8, left: 0, bottom: 0 }}
             barCategoryGap="22%"
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
