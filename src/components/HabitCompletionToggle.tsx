@@ -134,12 +134,17 @@ export default function HabitCompletionToggle({
               }
             : { scale: 1, rotate: 0 }
         }
-        transition={{
-          type: 'spring',
-          stiffness: 420,
-          damping: 20,
-          mass: 0.8,
-        }}
+        transition={
+          completed
+            ? {
+                duration: 0.45,
+                ease: 'easeInOut',
+              }
+            : {
+                duration: 0.2,
+                ease: 'easeOut',
+              }
+        }
         aria-label={completed ? `Mark ${habitName} as incomplete` : `Mark ${habitName} as complete`}
         className={`w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-colors shrink-0 select-none z-10 ${
           completed
