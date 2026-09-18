@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScreenId, TransitionType, Habit, ReminderNotification, ReminderSettings, MoodId } from './types';
 import OnboardingScreen from './components/OnboardingScreen';
@@ -18,6 +18,12 @@ import {
   saveStoredNotifications,
   triggerDailyReminder,
 } from './services/notificationService';
+import {
+  getStoredTotalXp,
+  saveStoredTotalXp,
+  calculateLevelStats,
+  XP_PER_HABIT,
+} from './utils/xpSystem';
 
 const INITIAL_HABITS: Habit[] = [
   {
@@ -85,6 +91,13 @@ const INITIAL_HABITS: Habit[] = [
     icon: 'book',
     completed: true,
     category: 'Learning',
+    frequency: 'Daily',
+    targetFrequency: {
+      mode: 'everyday',
+      timesPerPeriod: 7,
+      period: 'day',
+      label: 'Every day',
+    },
     todayMood: 'calm',
     todayMoodNote: 'Quiet, reflective reading on habit design',
     todayMoodLoggedAt: '2:15 PM',
@@ -107,6 +120,14 @@ const INITIAL_HABITS: Habit[] = [
     icon: 'meditate',
     completed: false,
     category: 'Mindfulness',
+    frequency: 'Custom',
+    targetFrequency: {
+      mode: 'specific_days',
+      timesPerPeriod: 5,
+      period: 'week',
+      daysOfWeek: [1, 2, 3, 4, 5],
+      label: 'Mon – Fri',
+    },
     completionHistory: [
       true, false, true, false, true, true, false, false, true, true,
       false, true, false, true, true, false, true, false, true, true,
@@ -126,6 +147,13 @@ const INITIAL_HABITS: Habit[] = [
     icon: 'junk_food',
     completed: true,
     category: 'Health',
+    frequency: 'Daily',
+    targetFrequency: {
+      mode: 'everyday',
+      timesPerPeriod: 7,
+      period: 'day',
+      label: 'Every day',
+    },
     todayMood: 'accomplished',
     todayMoodNote: 'Cooked fresh whole foods with natural ingredients',
     todayMoodLoggedAt: '1:10 PM',
@@ -148,6 +176,13 @@ const INITIAL_HABITS: Habit[] = [
     icon: 'leaf',
     completed: true,
     category: 'Personal',
+    frequency: 'Daily',
+    targetFrequency: {
+      mode: 'everyday',
+      timesPerPeriod: 7,
+      period: 'day',
+      label: 'Every day',
+    },
     todayMood: 'calm',
     todayMoodNote: 'Gratitude journal entry before dinner',
     todayMoodLoggedAt: '6:30 PM',
@@ -173,6 +208,12 @@ export default function App() {
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>(getStoredSettings);
   const [notifications, setNotifications] = useState<ReminderNotification[]>(getStoredNotifications);
   const [activeToastNotification, setActiveToastNotification] = useState<ReminderNotification | null>(null);
+
+  // Experience Points (XP) & Gamification Level System
+  const [totalXp, setTotalXp] = useState<number>(() => getStoredTotalXp(INITIAL_HABITS));
+  const [recentXpGained, setRecentXpGained] = useState<number | null>(null);
+
+  const xpStats = useMemo(() => calculateLevelStats(totalXp, habits), [totalXp, habits]);
 
   const handleUpdateSettings = (newSettings: ReminderSettings) => {
     setReminderSettings(newSettings);
@@ -240,6 +281,26 @@ export default function App() {
   };
 
   const handleToggleHabit = (id: string) => {
+    const targetHabit = habits.find((h) => h.id === id);
+    if (targetHabit) {
+      const willBeCompleted = !targetHabit.completed;
+      if (willBeCompleted) {
+        setTotalXp((prev) => {
+          const next = prev + XP_PER_HABIT;
+          saveStoredTotalXp(next);
+          return next;
+        });
+        setRecentXpGained(XP_PER_HABIT);
+        setTimeout(() => setRecentXpGained(null), 2500);
+      } else {
+        setTotalXp((prev) => {
+          const next = Math.max(0, prev - XP_PER_HABIT);
+          saveStoredTotalXp(next);
+          return next;
+        });
+      }
+    }
+
     setHabits((prev) =>
       prev.map((habit) => {
         if (habit.id !== id) return habit;
@@ -390,6 +451,8 @@ export default function App() {
                 onTriggerToast={handleTriggerToast}
                 onLogMood={handleLogMood}
                 onRemoveMood={handleRemoveMood}
+                xpStats={xpStats}
+                recentXpGained={recentXpGained}
               />
             </motion.div>
           )}

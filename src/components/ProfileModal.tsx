@@ -1,16 +1,24 @@
 import { useMemo } from 'react';
-import { X, Trophy, Flame, CheckCircle, Award, Sparkles, Moon } from 'lucide-react';
+import { X, Trophy, Flame, CheckCircle, Award, Sparkles, Moon, Zap } from 'lucide-react';
 import { Habit, calculateHabitStreak, getActiveMilestones } from '../types';
+import { XPStats, calculateLevelStats, getStoredTotalXp } from '../utils/xpSystem';
 import Milestones from './Milestones';
 import ThemeToggle from './ThemeToggle';
 
 interface ProfileModalProps {
   habits: Habit[];
+  xpStats?: XPStats;
   onClose: () => void;
 }
 
-export default function ProfileModal({ habits, onClose }: ProfileModalProps) {
+export default function ProfileModal({ habits, xpStats: passedXpStats, onClose }: ProfileModalProps) {
   const milestones = useMemo(() => getActiveMilestones(habits), [habits]);
+
+  const stats = useMemo(() => {
+    if (passedXpStats) return passedXpStats;
+    const currentXp = getStoredTotalXp(habits);
+    return calculateLevelStats(currentXp, habits);
+  }, [passedXpStats, habits]);
 
   const bestStreak = useMemo(() => {
     return habits.length > 0
@@ -54,24 +62,45 @@ export default function ProfileModal({ habits, onClose }: ProfileModalProps) {
         {/* Scrollable Content */}
         <div className="p-5 overflow-y-auto space-y-4 no-scrollbar flex-1">
           {/* User Card */}
-          <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-4 shadow-sm border border-slate-100/90 dark:border-slate-700/80 flex items-center justify-between">
-            <div className="flex items-center gap-3.5">
-              <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-md shadow-emerald-200 dark:shadow-emerald-950">
-                <div className="w-full h-full rounded-[14px] bg-white dark:bg-slate-800 flex items-center justify-center text-2xl">
-                  🧘‍♂️
+          <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-4 shadow-sm border border-slate-100/90 dark:border-slate-700/80 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3.5">
+                <div className="w-13 h-13 rounded-2xl bg-linear-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-md shadow-emerald-200 dark:shadow-emerald-950">
+                  <div className="w-full h-full rounded-[14px] bg-white dark:bg-slate-800 flex items-center justify-center text-2xl">
+                    🧘‍♂️
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Madhan Mathew</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                      Lvl {stats.level} • {stats.title}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">Daily Habit Builder • Since 2026</p>
+                  <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-1">
+                    <Flame className="w-3.5 h-3.5 fill-current" /> {bestStreak}-Day Top Streak Active
+                  </div>
                 </div>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Madhan Mathew</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
-                    Master
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">Daily Habit Builder • Since 2026</p>
-                <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-1">
-                  <Flame className="w-3.5 h-3.5 fill-current" /> {bestStreak}-Day Top Streak Active
-                </div>
+            </div>
+
+            {/* Level XP Progress strip inside profile */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-700/70 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300">
+                  <Zap className="w-3.5 h-3.5 text-emerald-500 fill-current" />
+                  Level {stats.level} Experience
+                </span>
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  <strong className="text-emerald-600 dark:text-emerald-400">{stats.currentLevelXp}</strong> / {stats.neededLevelXp} XP ({stats.totalXp} Total)
+                </span>
+              </div>
+              <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-emerald-500 to-teal-400 transition-all duration-300"
+                  style={{ width: `${stats.progressPercent}%` }}
+                />
               </div>
             </div>
           </div>

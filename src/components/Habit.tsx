@@ -8,9 +8,15 @@ export interface HabitProps {
   habit: HabitType;
   onToggle: (id: string) => void;
   onOpenMoodLog?: (habit: HabitType) => void;
+  isScheduledToday?: boolean;
 }
 
-export default function Habit({ habit, onToggle, onOpenMoodLog }: HabitProps) {
+export default function Habit({
+  habit,
+  onToggle,
+  onOpenMoodLog,
+  isScheduledToday = true,
+}: HabitProps) {
   const streak = calculateHabitStreak(habit.completionHistory, habit.completed, habit.streak);
   const moodOption = getMoodOption(habit.todayMood);
 
@@ -93,6 +99,19 @@ export default function Habit({ habit, onToggle, onOpenMoodLog }: HabitProps) {
               >
                 <span className="text-[9px]">🎯</span>
                 <span>{habit.targetFrequency.label}</span>
+              </span>
+            )}
+
+            {/* Rest Day / Off-Schedule Badge when habit is not scheduled for today */}
+            {!isScheduledToday && (
+              <span
+                id={`habit-rest-day-badge-${habit.id}`}
+                data-purpose="habit-rest-day-badge"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/80 text-slate-500 dark:text-slate-400 border border-slate-200/80 dark:border-slate-600/80 shrink-0"
+                title="Not scheduled for this day (Rest / Off day)"
+              >
+                <span className="text-[10px]">💤</span>
+                <span>Off-Schedule</span>
               </span>
             )}
 

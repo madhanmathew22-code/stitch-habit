@@ -250,6 +250,7 @@ export interface Habit {
   timeOfDay: 'morning' | 'afternoon' | 'evening' | 'all';
   icon: HabitIconKey;
   completed: boolean;
+  isActive?: boolean;
   frequency?: 'Daily' | 'Weekly' | 'Custom' | string;
   targetFrequency?: TargetFrequency;
   category?: HabitCategory;
@@ -265,6 +266,45 @@ export interface Habit {
   todayMoodLoggedAt?: string;
   moodHistory?: (MoodId | null)[];
   moodEntries?: HabitMoodEntry[];
+}
+
+/**
+ * Checks whether a habit is scheduled / active for a specific day of the week.
+ * @param habit The habit to evaluate
+ * @param dayOfWeek 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday (JS Date.getDay())
+ */
+export function isHabitScheduledForDay(habit: Habit, dayOfWeek: number): boolean {
+  // If explicitly paused / marked inactive, it's not active
+  if (habit.isActive === false) {
+    return false;
+  }
+
+  // 1. Structured targetFrequency
+  const tf = habit.targetFrequency;
+  if (tf) {
+    if (tf.mode === 'everyday') {
+      return true;
+    }
+    if (tf.daysOfWeek && tf.daysOfWeek.length > 0) {
+      return tf.daysOfWeek.includes(dayOfWeek);
+    }
+    if (tf.mode === 'specific_days') {
+      return tf.daysOfWeek ? tf.daysOfWeek.includes(dayOfWeek) : true;
+    }
+    if (tf.mode === 'times_per_week' || tf.mode === 'times_per_month') {
+      if (tf.daysOfWeek && tf.daysOfWeek.length > 0) {
+        return tf.daysOfWeek.includes(dayOfWeek);
+      }
+      return true;
+    }
+  }
+
+  // 2. Frequency fallback
+  if (habit.frequency === 'Daily' || !habit.frequency) {
+    return true;
+  }
+
+  return true;
 }
 
 export function calculateHabitStreak(

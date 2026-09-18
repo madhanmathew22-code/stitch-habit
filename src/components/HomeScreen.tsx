@@ -9,6 +9,8 @@ import MoodLogModal from './MoodLogModal';
 import HabitSortDropdown from './HabitSortDropdown';
 import DailyAffirmationWidget from './DailyAffirmationWidget';
 import ThemeToggle from './ThemeToggle';
+import XPHeaderProgressBar from './XPHeaderProgressBar';
+import FocusModeToggle from './FocusModeToggle';
 import {
   Habit as HabitType,
   ReminderNotification,
@@ -16,8 +18,10 @@ import {
   MoodId,
   HabitSortOption,
   calculateHabitStreak,
+  isHabitScheduledForDay,
 } from '../types';
 import { getMoodOption } from '../utils/moodHelpers';
+import { XPStats, calculateLevelStats, getStoredTotalXp } from '../utils/xpSystem';
 
 interface HomeScreenProps {
   habits: HabitType[];
@@ -31,6 +35,8 @@ interface HomeScreenProps {
   onTriggerToast: (notif: ReminderNotification) => void;
   onLogMood?: (habitId: string, mood: MoodId, note?: string) => void;
   onRemoveMood?: (habitId: string) => void;
+  xpStats?: XPStats;
+  recentXpGained?: number | null;
 }
 
 export default function HomeScreen({
@@ -45,6 +51,8 @@ export default function HomeScreen({
   onTriggerToast,
   onLogMood,
   onRemoveMood,
+  xpStats: passedXpStats,
+  recentXpGained,
 }: HomeScreenProps) {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'morning' | 'afternoon' | 'evening'>('all');
   const [selectedSort, setSelectedSort] = useState<HabitSortOption>('Most Frequent');
@@ -52,6 +60,31 @@ export default function HomeScreen({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [moodPromptHabit, setMoodPromptHabit] = useState<HabitType | null>(null);
+
+  const [isFocusMode, setIsFocusMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('habit_tracker_focus_mode');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleFocusMode = () => {
+    setIsFocusMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('habit_tracker_focus_mode', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const effectiveXpStats = useMemo(() => {
+    if (passedXpStats) return passedXpStats;
+    const currentXp = getStoredTotalXp(habits);
+    return calculateLevelStats(currentXp, habits);
+  }, [passedXpStats, habits]);
 
   const daysOfWeek = [
     { name: 'Mon', completed: true },
@@ -63,14 +96,33 @@ export default function HomeScreen({
     { name: 'Sun', completed: false, isToday: true },
   ];
 
+  // Convert calendar strip index (0=Mon...6=Sun) to standard JS day (0=Sun, 1=Mon...6=Sat)
+  const currentJsDay = [1, 2, 3, 4, 5, 6, 0][selectedDayIndex];
+  const selectedDayObj = daysOfWeek[selectedDayIndex];
+  const dayLabel = selectedDayObj?.isToday ? 'today' : selectedDayObj?.name || 'today';
+
+  // Habits scheduled vs inactive for the selected day
+  const scheduledHabitsForDay = useMemo(() => {
+    return habits.filter((h) => isHabitScheduledForDay(h, currentJsDay));
+  }, [habits, currentJsDay]);
+
+  const inactiveHabitsForDay = useMemo(() => {
+    return habits.filter((h) => !isHabitScheduledForDay(h, currentJsDay));
+  }, [habits, currentJsDay]);
+
   const sortedAndFilteredHabits = useMemo(() => {
-    // 1. Filter by time of day
-    const timeFiltered = habits.filter((habit) => {
+    // 1. Filter by Focus Mode (active scheduled habits for that day)
+    const focusFiltered = isFocusMode
+      ? habits.filter((habit) => isHabitScheduledForDay(habit, currentJsDay))
+      : habits;
+
+    // 2. Filter by time of day
+    const timeFiltered = focusFiltered.filter((habit) => {
       if (selectedFilter === 'all') return true;
       return habit.timeOfDay === selectedFilter || habit.timeOfDay === 'all';
     });
 
-    // 2. Sort by selected sort option
+    // 3. Sort by selected sort option
     return [...timeFiltered].sort((a, b) => {
       if (selectedSort === 'Highest Streak') {
         const streakA = calculateHabitStreak(a.completionHistory, a.completed, a.streak);
@@ -125,7 +177,11 @@ export default function HomeScreen({
 
       return 0;
     });
-  }, [habits, selectedFilter, selectedSort]);
+  }, [habits, selectedFilter, selectedSort, isFocusMode, currentJsDay]);
+
+  const scheduledCount = scheduledHabitsForDay.length;
+  const completedScheduledCount = scheduledHabitsForDay.filter((h) => h.completed).length;
+  const focusProgressPercent = scheduledCount > 0 ? Math.round((completedScheduledCount / scheduledCount) * 100) : 0;
 
   const completedCount = habits.filter((h) => h.completed).length;
   const totalCount = habits.length;
@@ -221,6 +277,13 @@ export default function HomeScreen({
             </button>
           </div>
         </section>
+
+        {/* Experience Points (XP) Header Progress Bar */}
+        <XPHeaderProgressBar
+          stats={effectiveXpStats}
+          recentXpGained={recentXpGained}
+          className="mb-2.5"
+        />
 
         {/* Daily Affirmation Mindful Widget */}
         <DailyAffirmationWidget />
@@ -327,20 +390,38 @@ export default function HomeScreen({
         <section className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-4 shadow-sm border border-slate-100 dark:border-slate-700" data-purpose="progress-card">
           <div className="flex justify-between items-center mb-2.5">
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Today's Progress</h2>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isFocusMode ? "Today's Focus Progress" : "Today's Progress"}
+                </h2>
+                {isFocusMode && (
+                  <span
+                    id="focus-progress-badge"
+                    className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80"
+                  >
+                    Focus View
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                {completedCount}/{totalCount} habits completed
+                {isFocusMode
+                  ? `${completedScheduledCount}/${scheduledCount} scheduled habits completed`
+                  : `${completedCount}/${totalCount} total habits completed`}
               </p>
             </div>
             <div className="text-right">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{progressPercent}%</span>
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                {isFocusMode ? focusProgressPercent : progressPercent}%
+              </span>
             </div>
           </div>
           {/* Progress Bar Background & Active Bar */}
           <div className="w-full bg-slate-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden flex">
             <div
-              className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-              style={{ width: `${progressPercent}%` }}
+              className={`h-full rounded-full transition-all duration-500 ${
+                isFocusMode ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-emerald-500'
+              }`}
+              style={{ width: `${isFocusMode ? focusProgressPercent : progressPercent}%` }}
             ></div>
           </div>
         </section>
@@ -350,6 +431,16 @@ export default function HomeScreen({
           habits={habits}
           variant="home"
           onViewAll={() => setIsProfileOpen(true)}
+        />
+
+        {/* Focus Mode Quick Toggle */}
+        <FocusModeToggle
+          isFocusMode={isFocusMode}
+          onToggle={handleToggleFocusMode}
+          scheduledCount={scheduledHabitsForDay.length}
+          inactiveCount={inactiveHabitsForDay.length}
+          dayLabel={dayLabel}
+          className="mb-4"
         />
 
         {/* FilterTabs */}
@@ -402,15 +493,22 @@ export default function HomeScreen({
 
         {/* Habit Controls Header: Habit Count & Sorting Dropdown */}
         <div className="flex items-center justify-between mb-3 px-1" data-purpose="habit-list-controls">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
               {selectedFilter === 'all'
-                ? 'All Habits'
+                ? isFocusMode
+                  ? 'Scheduled Habits'
+                  : 'All Habits'
                 : `${selectedFilter.charAt(0).toUpperCase() + selectedFilter.slice(1)} Habits`}
             </span>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700">
               {sortedAndFilteredHabits.length}
             </span>
+            {isFocusMode && inactiveHabitsForDay.length > 0 && (
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                ({inactiveHabitsForDay.length} inactive hidden)
+              </span>
+            )}
           </div>
 
           <HabitSortDropdown
@@ -425,14 +523,47 @@ export default function HomeScreen({
             <Habit
               key={habit.id}
               habit={habit}
+              isScheduledToday={isHabitScheduledForDay(habit, currentJsDay)}
               onToggle={handleHabitToggleWithMood}
               onOpenMoodLog={(target) => setMoodPromptHabit(target)}
             />
           ))}
 
           {sortedAndFilteredHabits.length === 0 && (
-            <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-xs">
-              No habits found for this time of day.
+            <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-xs space-y-2.5">
+              <p>
+                {isFocusMode
+                  ? `No habits scheduled for ${dayLabel} in this filter view.`
+                  : 'No habits found for this time of day.'}
+              </p>
+              {isFocusMode && inactiveHabitsForDay.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleToggleFocusMode}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/70 dark:border-indigo-800/70 hover:bg-indigo-100/70 cursor-pointer"
+                >
+                  <span>Disable Focus Mode to view all habits</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Footer note when Focus Mode has hidden inactive habits */}
+          {isFocusMode && inactiveHabitsForDay.length > 0 && sortedAndFilteredHabits.length > 0 && (
+            <div
+              id="focus-mode-footer-hint"
+              className="pt-2 px-1 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/60"
+            >
+              <span>
+                {inactiveHabitsForDay.length} off-schedule {inactiveHabitsForDay.length === 1 ? 'habit' : 'habits'} hidden
+              </span>
+              <button
+                type="button"
+                onClick={handleToggleFocusMode}
+                className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+              >
+                Show All Habits
+              </button>
             </div>
           )}
         </section>
@@ -511,6 +642,7 @@ export default function HomeScreen({
       {isProfileOpen && (
         <ProfileModal
           habits={habits}
+          xpStats={effectiveXpStats}
           onClose={() => setIsProfileOpen(false)}
         />
       )}

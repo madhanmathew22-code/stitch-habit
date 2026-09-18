@@ -11,6 +11,8 @@ import {
 import HabitIconDisplay from './HabitIconDisplay';
 import CategoryMultiSelect from './CategoryMultiSelect';
 import TargetFrequencySelector from './TargetFrequencySelector';
+import GoalRecommendationEngine from './GoalRecommendationEngine';
+import { GoalRecommendation } from '../utils/goalRecommendations';
 import {
   Check,
   Search,
@@ -81,6 +83,17 @@ export default function AddHabitScreen({ onSaveHabit, onNavigateHome }: AddHabit
       createdAt: Date.now(),
     };
     onSaveHabit(newHabit);
+  };
+
+  const handleApplyRecommendation = (rec: GoalRecommendation) => {
+    setHabitName(rec.name);
+    setSelectedIcon(rec.icon);
+    setTargetFrequency(rec.targetFrequency);
+    setReminderTime(rec.reminderTime);
+    setReminderEnabled(true);
+    if (!selectedCategories.includes(rec.category)) {
+      setSelectedCategories([rec.category, ...selectedCategories]);
+    }
   };
 
   return (
@@ -176,6 +189,13 @@ export default function AddHabitScreen({ onSaveHabit, onNavigateHome }: AddHabit
                 onChange={setSelectedCategories}
               />
             </div>
+
+            {/* Goal Recommendation Engine based on Selected Category */}
+            <GoalRecommendationEngine
+              selectedCategories={selectedCategories}
+              currentHabitName={habitName}
+              onApplyRecommendation={handleApplyRecommendation}
+            />
 
             {/* Field 2: Selectable Custom Habit Icon */}
             <div data-purpose="icon-selection" className="space-y-2.5 pt-1">
