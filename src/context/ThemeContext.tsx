@@ -10,7 +10,18 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const defaultThemeContext: ThemeContextType = {
+  theme: 'light',
+  toggleTheme: () => {},
+  setTheme: () => {},
+};
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const existingContext = useContext(ThemeContext);
+  if (existingContext) {
+    return <>{children}</>;
+  }
+
   const [theme, setThemeState] = useState<Theme>(() => {
     try {
       const saved = localStorage.getItem('mindful_habit_theme');
@@ -60,7 +71,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    return defaultThemeContext;
   }
   return context;
 }

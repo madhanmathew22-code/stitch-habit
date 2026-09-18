@@ -11,6 +11,7 @@ import HomeScreen from './components/HomeScreen';
 import AddHabitScreen from './components/AddHabitScreen';
 import AnalyticsScreen from './components/AnalyticsScreen';
 import NotificationToast from './components/NotificationToast';
+import { ThemeProvider } from './context/ThemeContext';
 import {
   getStoredSettings,
   saveStoredSettings,
@@ -400,7 +401,8 @@ export default function App() {
   const variants = getVariants();
 
   return (
-    <div className="relative bg-slate-950 flex items-center justify-center min-h-screen p-0 sm:p-4 text-slate-800 antialiased selection:bg-emerald-100 selection:text-emerald-800 overflow-hidden">
+    <ThemeProvider>
+      <div className="relative bg-slate-950 flex items-center justify-center min-h-screen p-0 sm:p-4 text-slate-800 antialiased selection:bg-emerald-100 selection:text-emerald-800 overflow-hidden">
       {/* Mindful Ambient Soft Aura */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute top-1/4 -left-20 w-80 h-80 bg-emerald-900/20 rounded-full blur-3xl" />
@@ -499,5 +501,6 @@ export default function App() {
         />
       </div>
     </div>
+    </ThemeProvider>
   );
 }

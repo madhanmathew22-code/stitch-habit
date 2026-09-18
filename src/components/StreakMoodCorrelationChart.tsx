@@ -402,11 +402,11 @@ export default function StreakMoodCorrelationChart({
       </div>
 
       {/* Recharts Dual-Axis Line Chart */}
-      <div className="w-full h-64 sm:h-72" id="streak-mood-chart-container">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="w-full h-64 sm:h-72 min-h-[256px]" id="streak-mood-chart-container">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
           <LineChart
             data={chartData}
-            margin={{ top: 10, right: 10, left: -16, bottom: 5 }}
+            margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
