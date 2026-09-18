@@ -1,0 +1,100 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: habitflow
+  namespace: 585968264314
+  selfLink: /apis/serving.knative.dev/v1/namespaces/585968264314/services/habitflow
+  uid: 3b8d980f-b2ab-4b62-be82-13e319822ae0
+  resourceVersion: AAZbv64iGl4
+  generation: 1
+  creationTimestamp: "2026-09-18T10:50:56.502048Z"
+  labels:
+    managed-by: google-ai-studio
+    run.googleapis.com/satisfiesPzs: "true"
+    cloud.googleapis.com/location: asia-southeast1
+  annotations:
+    generativelanguage.googleapis.com/type: fullstack-applet
+    generativelanguage.googleapis.com/applet-id: c3ff7a30-70af-416e-8018-61fa88e2d73f
+    run.googleapis.com/ingress: all
+    serving.knative.dev/creator: ais-sa@axial-partition-4ghtt.iam.gserviceaccount.com
+    serving.knative.dev/lastModifier: ais-sa@axial-partition-4ghtt.iam.gserviceaccount.com
+    run.googleapis.com/operation-id: 3e5d8003-7658-41e0-914b-17962860caa4
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/invoker-iam-disabled: "true"
+    run.googleapis.com/maxScale: 1
+    run.googleapis.com/urls: "[\"https://habitflow-585968264314.asia-southeast1.run.app\"\
+      ,\"https://habitflow-kyq5rs4cna-as.a.run.app\"]"
+spec:
+  template:
+    metadata:
+      labels:
+        run.googleapis.com/startupProbeType: Custom
+      annotations:
+        run.googleapis.com/sessionAffinity: "true"
+        autoscaling.knative.dev/minScale: 0
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/base-images: "{\"app-container\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22/runtimes/nodejs22\"\
+          }"
+        run.googleapis.com/sources: "{\"app-container\":\"gs://run-sources-585968264314-ift-asia-southeast1/services/habitflow/app.tar.gz\"\
+          }"
+        run.googleapis.com/cpu-throttling: "true"
+    spec:
+      containerConcurrency: 1000
+      timeoutSeconds: 300
+      serviceAccountName: 585968264314-compute@developer.gserviceaccount.com
+      containers:
+      - name: app-container
+        image: scratch
+        command:
+        - /bin/sh
+        args:
+        - -c
+        - "if [ -f server.js ]; then node server.js; else npm start; fi"
+        ports:
+        - name: http1
+          containerPort: 3000
+        env:
+        - name: SQL_DB_NAME
+          value: cloud_sql_production_database
+        - name: GEMINI_API_KEY
+          value: AQ.Ab8RN6I1mjsvwsdKx-fh68BJ_sckxzXJ1EnKxSmnXlYNFELGsw
+        - name: APP_URL
+          value: https://habitflow-585968264314.asia-southeast1.run.app
+        resources:
+          limits:
+            cpu: 1
+            memory: 3Gi
+        startupProbe:
+          timeoutSeconds: 1
+          periodSeconds: 1
+          failureThreshold: 10
+          tcpSocket:
+            port: 3000
+      runtimeClassName: run.googleapis.com/linux-base-image-update
+  traffic:
+  - percent: 100
+    latestRevision: true
+status:
+  observedGeneration: 1
+  conditions:
+  - type: Ready
+    status: "True"
+    lastTransitionTime: "2026-09-18T10:51:18.615646Z"
+  - type: BaseImageValidated
+    status: "True"
+    severity: Info
+  - type: ConfigurationsReady
+    status: "True"
+    lastTransitionTime: "2026-09-18T10:50:57.775682Z"
+  - type: RoutesReady
+    status: "True"
+    lastTransitionTime: "2026-09-18T10:51:18.554174Z"
+  latestReadyRevisionName: habitflow-00001-qvk
+  latestCreatedRevisionName: habitflow-00001-qvk
+  traffic:
+  - revisionName: habitflow-00001-qvk
+    percent: 100
+    latestRevision: true
+  url: https://habitflow-kyq5rs4cna-as.a.run.app
+  address:
+    url: https://habitflow-kyq5rs4cna-as.a.run.app
