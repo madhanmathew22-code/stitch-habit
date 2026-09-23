@@ -8,6 +8,12 @@ export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   scheduledTime: '20:00', // 8:00 PM default daily check-in
   soundEnabled: true,
   notifyOnAllCompleted: false,
+  hourlyEnabled: true, // Default to true so user gets hourly reminders
+  hourlyIntervalHours: 1, // Every 1 hr
+  lastHourlyNotifiedTimestamp: 0,
+  quietHoursEnabled: false,
+  quietHoursStart: '22:00',
+  quietHoursEnd: '08:00',
 };
 
 // Play a pleasant gentle chime using Web Audio API
@@ -50,7 +56,13 @@ export function getStoredSettings(): ReminderSettings {
   try {
     const data = localStorage.getItem(SETTINGS_KEY);
     if (data) {
-      return { ...DEFAULT_REMINDER_SETTINGS, ...JSON.parse(data) };
+      const parsed = JSON.parse(data);
+      return {
+        ...DEFAULT_REMINDER_SETTINGS,
+        ...parsed,
+        hourlyEnabled: parsed.hourlyEnabled !== undefined ? parsed.hourlyEnabled : true,
+        hourlyIntervalHours: parsed.hourlyIntervalHours || 1,
+      };
     }
   } catch (e) {
     // Fallback on default
@@ -188,3 +200,113 @@ export function triggerDailyReminder(
 
   return { notification: newNotification, reason: 'Success' };
 }
+
+// Check if current time falls within user's quiet hours
+export function isWithinQuietHours(
+  now: Date,
+  quietStart: string = '22:00',
+  quietEnd: string = '08:00'
+): boolean {
+  try {
+    const [startH, startM] = quietStart.split(':').map(Number);
+    const [endH, endM] = quietEnd.split(':').map(Number);
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    const startMins = startH * 60 + startM;
+    const endMins = endH * 60 + endM;
+
+    if (startMins > endMins) {
+      // Crosses midnight, e.g. 22:00 to 08:00
+      return currentMins >= startMins || currentMins < endMins;
+    } else {
+      // Same day interval
+      return currentMins >= startMins && currentMins < endMins;
+    }
+  } catch {
+    return false;
+  }
+}
+
+// Build and dispatch an hourly reminder notification every 1 hr
+export function triggerHourlyReminder(
+  habits: Habit[],
+  settings: ReminderSettings,
+  isManualTest: boolean = false
+): { notification: ReminderNotification | null; reason: string } {
+  const now = new Date();
+
+  // Check quiet hours if enabled and not a manual test trigger
+  if (
+    !isManualTest &&
+    settings.quietHoursEnabled &&
+    isWithinQuietHours(now, settings.quietHoursStart || '22:00', settings.quietHoursEnd || '08:00')
+  ) {
+    return { notification: null, reason: 'Quiet hours active' };
+  }
+
+  const incomplete = habits.filter((h) => !h.completed);
+
+  if (incomplete.length === 0 && !settings.notifyOnAllCompleted && !isManualTest) {
+    return { notification: null, reason: 'All habits completed for today' };
+  }
+
+  let title = 'Hourly Habit Check-in ⏱️';
+  let body = '';
+
+  const intervalLabel = settings.hourlyIntervalHours === 1 ? 'Hourly' : `Every ${settings.hourlyIntervalHours}h`;
+
+  if (incomplete.length > 0) {
+    const habitNames = incomplete.map((h) => h.name);
+    const namesStr =
+      habitNames.length <= 2
+        ? habitNames.join(' and ')
+        : `${habitNames.slice(0, 2).join(', ')} +${habitNames.length - 2} more`;
+
+    title = `${intervalLabel} Reminder (${incomplete.length} pending) ⏱️`;
+    body = `Hourly nudge: Take 2 minutes to check off your remaining habit${
+      incomplete.length > 1 ? 's' : ''
+    }: ${namesStr}. Keep up your momentum!`;
+  } else {
+    title = `${intervalLabel} Check: All Done! 🌟`;
+    body = 'Awesome progress! All habits for today are completed. Enjoy your focused day!';
+  }
+
+  const newNotification: ReminderNotification = {
+    id: `hourly-remind-${Date.now()}`,
+    title,
+    body,
+    timestamp: now.toISOString(),
+    incompleteHabitIds: incomplete.map((h) => h.id),
+    incompleteHabitNames: incomplete.map((h) => h.name),
+    read: false,
+    type: 'hourly_reminder',
+  };
+
+  // Play audio chime if enabled
+  if (settings.soundEnabled) {
+    playChimeSound();
+  }
+
+  // Attempt Web Browser Notification
+  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(title, {
+        body,
+        icon: '/favicon.ico',
+        tag: 'habitflow-hourly-reminder',
+      });
+    } catch (e) {
+      // Browser notification might be restricted in iframe
+    }
+  }
+
+  // Store in notification history
+  const currentNotifications = getStoredNotifications();
+  const updatedNotifications = [newNotification, ...currentNotifications.slice(0, 19)];
+  saveStoredNotifications(updatedNotifications);
+
+  // Update lastHourlyNotifiedTimestamp
+  saveStoredSettings({ ...settings, lastHourlyNotifiedTimestamp: now.getTime() });
+
+  return { notification: newNotification, reason: 'Success' };
+}
+

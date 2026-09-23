@@ -3,6 +3,7 @@ import {
   X,
   Bell,
   Clock,
+  Timer,
   Volume2,
   VolumeX,
   CheckCircle2,
@@ -13,12 +14,15 @@ import {
   Trash2,
   CalendarCheck,
   Flame,
+  Moon,
+  Zap,
 } from 'lucide-react';
 import { Habit, ReminderNotification, ReminderSettings } from '../types';
 import {
   getNotificationPermission,
   requestNotificationPermission,
   triggerDailyReminder,
+  triggerHourlyReminder,
   playChimeSound,
 } from '../services/notificationService';
 
@@ -101,6 +105,59 @@ export default function NotificationCenterModal({
     onUpdateNotifications([]);
   };
 
+  const handleToggleHourlyEnabled = () => {
+    const updated = {
+      ...settings,
+      hourlyEnabled: !settings.hourlyEnabled,
+      lastHourlyNotifiedTimestamp: Date.now(),
+    };
+    onUpdateSettings(updated);
+  };
+
+  const handleHourlyIntervalChange = (hours: number) => {
+    const updated = {
+      ...settings,
+      hourlyIntervalHours: hours,
+      lastHourlyNotifiedTimestamp: Date.now(),
+    };
+    onUpdateSettings(updated);
+  };
+
+  const handleToggleQuietHours = () => {
+    const updated = {
+      ...settings,
+      quietHoursEnabled: !settings.quietHoursEnabled,
+    };
+    onUpdateSettings(updated);
+  };
+
+  const handleSendTestHourlyReminder = () => {
+    const { notification } = triggerHourlyReminder(habits, settings, true);
+    if (notification) {
+      onTriggerToast(notification);
+      onUpdateNotifications([notification, ...notifications]);
+      setTestSentMessage(
+        incompleteHabits.length > 0
+          ? `Sent 1-hr reminder for ${incompleteHabits.length} pending habit${incompleteHabits.length > 1 ? 's' : ''}!`
+          : 'Sent hourly check celebration reminder!'
+      );
+      setTimeout(() => setTestSentMessage(null), 3500);
+    }
+  };
+
+  const getNextHourlyReminderEstimate = () => {
+    if (!settings.hourlyEnabled) return null;
+    const intervalMs = (settings.hourlyIntervalHours || 1) * 60 * 60 * 1000;
+    const lastTime = settings.lastHourlyNotifiedTimestamp || Date.now();
+    const nextTime = lastTime + intervalMs;
+    const diffMins = Math.max(1, Math.round((nextTime - Date.now()) / (60 * 1000)));
+    if (diffMins <= 1) return 'Within 1 min';
+    if (diffMins < 60) return `In ~${diffMins}m`;
+    const hrs = Math.floor(diffMins / 60);
+    const remMins = diffMins % 60;
+    return `In ~${hrs}h ${remMins}m`;
+  };
+
   // Convert 24hr string to 12hr display
   const formatTimeDisplay = (time24: string) => {
     if (!time24) return '8:00 PM';
@@ -137,7 +194,7 @@ export default function NotificationCenterModal({
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                Daily Habit Reminders
+                Habit Reminders
                 {unreadCount > 0 && (
                   <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-bold">
                     {unreadCount} new
@@ -145,7 +202,7 @@ export default function NotificationCenterModal({
                 )}
               </h2>
               <p className="text-[11px] text-slate-500 font-medium">
-                Daily reminder at {formatTimeDisplay(settings.scheduledTime)}
+                {settings.hourlyEnabled ? 'Hourly (Every 1h) • ' : ''}Daily at {formatTimeDisplay(settings.scheduledTime)}
               </p>
             </div>
           </div>
@@ -192,14 +249,150 @@ export default function NotificationCenterModal({
         <div className="p-5 overflow-y-auto space-y-4 no-scrollbar flex-1">
           {activeTab === 'settings' ? (
             <>
+              {/* Hourly Reminder Card (Every 1 hr) */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100/80 ring-1 ring-emerald-500/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Timer className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-sm font-bold text-slate-900">Hourly Reminder</h3>
+                        <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                          Every 1 hr
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Nudges you throughout the day to complete remaining habits
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Switch */}
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.hourlyEnabled}
+                    onClick={handleToggleHourlyEnabled}
+                    className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
+                      settings.hourlyEnabled ? 'bg-emerald-500' : 'bg-slate-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out mt-[2px] ml-[2px] ${
+                        settings.hourlyEnabled ? 'translate-x-6' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {settings.hourlyEnabled && (
+                  <div className="pt-3 border-t border-slate-100 space-y-3">
+                    {/* Interval selector */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-slate-700">Repeat Interval</span>
+                        <span className="text-xs font-bold text-emerald-600">
+                          {settings.hourlyIntervalHours === 1 ? 'Every 1 Hour' : `Every ${settings.hourlyIntervalHours} Hours`}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {[1, 2, 3].map((hrs) => (
+                          <button
+                            key={hrs}
+                            type="button"
+                            onClick={() => handleHourlyIntervalChange(hrs)}
+                            className={`py-1.5 px-2 rounded-xl text-xs font-semibold transition cursor-pointer text-center ${
+                              (settings.hourlyIntervalHours || 1) === hrs
+                                ? 'bg-emerald-500 text-white shadow-xs'
+                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                            }`}
+                          >
+                            {hrs === 1 ? 'Every 1 hr' : `Every ${hrs} hrs`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Next reminder status */}
+                    <div className="flex items-center justify-between p-2.5 bg-emerald-50/60 rounded-xl border border-emerald-100 text-xs text-emerald-900">
+                      <div className="flex items-center gap-2 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Active: Next hourly nudge</span>
+                      </div>
+                      <span className="font-bold text-emerald-700">
+                        {getNextHourlyReminderEstimate()}
+                      </span>
+                    </div>
+
+                    {/* Quiet Hours / Sleep Mode Toggle */}
+                    <div className="pt-2 border-t border-slate-100 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                          <span className="text-xs font-semibold text-slate-700">Night Quiet Hours</span>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={settings.quietHoursEnabled}
+                          onClick={handleToggleQuietHours}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
+                            settings.quietHoursEnabled ? 'bg-indigo-500' : 'bg-slate-200'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out mt-[2px] ml-[2px] ${
+                              settings.quietHoursEnabled ? 'translate-x-4' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {settings.quietHoursEnabled && (
+                        <div className="flex items-center justify-between p-2 bg-indigo-50/50 rounded-xl border border-indigo-100 text-xs">
+                          <span className="text-indigo-900 font-medium">Pause between:</span>
+                          <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
+                            <input
+                              type="time"
+                              value={settings.quietHoursStart || '22:00'}
+                              onChange={(e) =>
+                                onUpdateSettings({ ...settings, quietHoursStart: e.target.value })
+                              }
+                              className="bg-white px-2 py-0.5 rounded border border-indigo-200 text-xs cursor-pointer"
+                            />
+                            <span>to</span>
+                            <input
+                              type="time"
+                              value={settings.quietHoursEnd || '08:00'}
+                              onChange={(e) =>
+                                onUpdateSettings({ ...settings, quietHoursEnd: e.target.value })
+                              }
+                              className="bg-white px-2 py-0.5 rounded border border-indigo-200 text-xs cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Daily Reminder Main Toggle */}
               <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Daily Incomplete Habit Alert</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Sends reminders for remaining habits to protect your streaks
-                    </p>
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Daily Evening Review</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Evening check-in to review streaks and complete remaining tasks
+                      </p>
+                    </div>
                   </div>
                   {/* Switch */}
                   <button
@@ -208,7 +401,7 @@ export default function NotificationCenterModal({
                     aria-checked={settings.enabled}
                     onClick={handleToggleEnabled}
                     className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                      settings.enabled ? 'bg-emerald-500' : 'bg-slate-200'
+                      settings.enabled ? 'bg-blue-500' : 'bg-slate-200'
                     }`}
                   >
                     <span
@@ -225,7 +418,7 @@ export default function NotificationCenterModal({
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-semibold text-slate-700">Scheduled Time</span>
-                        <span className="text-xs font-bold text-emerald-600">
+                        <span className="text-xs font-bold text-blue-600">
                           {formatTimeDisplay(settings.scheduledTime)}
                         </span>
                       </div>
@@ -239,7 +432,7 @@ export default function NotificationCenterModal({
                             onClick={() => handleTimeChange(preset.value)}
                             className={`py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                               settings.scheduledTime === preset.value
-                                ? 'bg-emerald-500 text-white shadow-xs'
+                                ? 'bg-blue-500 text-white shadow-xs'
                                 : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
                             }`}
                           >
@@ -258,70 +451,73 @@ export default function NotificationCenterModal({
                           type="time"
                           value={settings.scheduledTime}
                           onChange={(e) => handleTimeChange(e.target.value)}
-                          className="bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                          className="bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
                         />
                       </div>
-                    </div>
-
-                    {/* Sound Chime Toggle */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                      <div className="flex items-center gap-2">
-                        {settings.soundEnabled ? (
-                          <Volume2 className="w-4 h-4 text-emerald-600" />
-                        ) : (
-                          <VolumeX className="w-4 h-4 text-slate-400" />
-                        )}
-                        <span className="text-xs font-semibold text-slate-700">Audio Chime Sound</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleToggleSound}
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                          settings.soundEnabled
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {settings.soundEnabled ? 'Enabled' : 'Muted'}
-                      </button>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Browser Permission Card */}
-              <div className="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-900">Browser System Notifications</div>
-                    <p className="text-[11px] text-slate-500">
-                      {permission === 'granted'
-                        ? 'Permitted on this device'
-                        : permission === 'denied'
-                        ? 'Notifications currently blocked in browser'
-                        : 'Allow alerts even if window is minimized'}
-                    </p>
-                  </div>
-                </div>
+              {/* Sound & System Notification Controls */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Alert Sound & System</h4>
 
-                {permission !== 'granted' && permission !== 'unsupported' && (
+                {/* Sound Chime Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {settings.soundEnabled ? (
+                      <Volume2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <VolumeX className="w-4 h-4 text-slate-400" />
+                    )}
+                    <span className="text-xs font-semibold text-slate-700">Audio Chime Sound</span>
+                  </div>
                   <button
                     type="button"
-                    onClick={handleRequestPermission}
-                    className="px-3 py-1.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold shadow-xs transition cursor-pointer shrink-0"
+                    onClick={handleToggleSound}
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      settings.soundEnabled
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}
                   >
-                    Enable
+                    {settings.soundEnabled ? 'Enabled' : 'Muted'}
                   </button>
-                )}
+                </div>
 
-                {permission === 'granted' && (
-                  <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
-                )}
+                {/* Browser Permission Card */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold text-slate-800">Browser System Push</div>
+                      <p className="text-[10px] text-slate-500">
+                        {permission === 'granted'
+                          ? 'Active on this device'
+                          : permission === 'denied'
+                          ? 'Notifications blocked'
+                          : 'Alerts even when minimized'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {permission !== 'granted' && permission !== 'unsupported' && (
+                    <button
+                      type="button"
+                      onClick={handleRequestPermission}
+                      className="px-2.5 py-1 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition cursor-pointer shrink-0"
+                    >
+                      Enable
+                    </button>
+                  )}
+
+                  {permission === 'granted' && (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                      Active
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Incomplete Habits Preview Today */}
@@ -383,16 +579,27 @@ export default function NotificationCenterModal({
                 )}
               </div>
 
-              {/* Test Reminder Trigger Button */}
+              {/* Test Reminder Trigger Buttons */}
               <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={handleSendTestReminder}
-                  className="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Send Test Reminder Now</span>
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSendTestHourlyReminder}
+                    className="py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-white text-xs font-bold shadow-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Timer className="w-3.5 h-3.5" />
+                    <span>Test 1-Hr Reminder</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSendTestReminder}
+                    className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 active:scale-98 text-white text-xs font-bold shadow-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Test Daily Alert</span>
+                  </button>
+                </div>
 
                 {testSentMessage && (
                   <p className="text-[11px] text-center font-semibold text-emerald-600 animate-in fade-in">
@@ -450,11 +657,16 @@ export default function NotificationCenterModal({
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-1.5 font-bold text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-xs flex-wrap">
                           {!notif.read && (
                             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
                           )}
                           <h4>{notif.title}</h4>
+                          {notif.type === 'hourly_reminder' && (
+                            <span className="px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-[9px] font-bold">
+                              1-Hr Nudge
+                            </span>
+                          )}
                         </div>
                         <span className="text-[10px] text-slate-400 shrink-0">
                           {new Date(notif.timestamp).toLocaleTimeString([], {

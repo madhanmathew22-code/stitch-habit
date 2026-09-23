@@ -340,7 +340,7 @@ export interface ReminderNotification {
   incompleteHabitIds: string[];
   incompleteHabitNames: string[];
   read: boolean;
-  type: 'daily_reminder' | 'streak_alert' | 'system';
+  type: 'daily_reminder' | 'hourly_reminder' | 'streak_alert' | 'system';
 }
 
 export interface ReminderSettings {
@@ -349,5 +349,12 @@ export interface ReminderSettings {
   soundEnabled: boolean;
   notifyOnAllCompleted: boolean;
   lastNotifiedDate?: string;
+  // Hourly reminder every 1 hr
+  hourlyEnabled: boolean;
+  hourlyIntervalHours: number; // default: 1 (every 1 hour)
+  lastHourlyNotifiedTimestamp?: number;
+  quietHoursEnabled?: boolean;
+  quietHoursStart?: string; // e.g. "22:00"
+  quietHoursEnd?: string; // e.g. "08:00"
 }
 

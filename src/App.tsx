@@ -18,6 +18,7 @@ import {
   getStoredNotifications,
   saveStoredNotifications,
   triggerDailyReminder,
+  triggerHourlyReminder,
 } from './services/notificationService';
 import {
   getStoredTotalXp,
@@ -240,19 +241,19 @@ export default function App() {
     }
   }, [activeToastNotification]);
 
-  // Daily Reminder Scheduler Engine: checks every 15 seconds against scheduled reminder time
+  // Daily & Hourly Reminder Scheduler Engine: checks every 15 seconds against scheduled reminder times
   useEffect(() => {
     const checkSchedule = () => {
-      if (!reminderSettings.enabled) return;
-
       const now = new Date();
+      const nowMs = now.getTime();
       const currentHours = String(now.getHours()).padStart(2, '0');
       const currentMinutes = String(now.getMinutes()).padStart(2, '0');
       const currentTimeStr = `${currentHours}:${currentMinutes}`;
       const todayDateStr = now.toISOString().split('T')[0];
 
-      // Check if current time matches scheduled time and hasn't already notified today
+      // 1. Daily Reminder Check (at scheduled time e.g. 20:00)
       if (
+        reminderSettings.enabled &&
         currentTimeStr === reminderSettings.scheduledTime &&
         reminderSettings.lastNotifiedDate !== todayDateStr
       ) {
@@ -266,6 +267,35 @@ export default function App() {
           };
           setReminderSettings(updatedSettings);
           saveStoredSettings(updatedSettings);
+        }
+      }
+
+      // 2. Hourly Reminder Check (every 1 hour)
+      if (reminderSettings.hourlyEnabled) {
+        const intervalHours = reminderSettings.hourlyIntervalHours || 1;
+        const intervalMs = intervalHours * 60 * 60 * 1000;
+        const lastHourly = reminderSettings.lastHourlyNotifiedTimestamp || 0;
+
+        if (!lastHourly) {
+          // Initialize timestamp so first automated hourly reminder fires after 1 full interval
+          const updatedSettings = {
+            ...reminderSettings,
+            lastHourlyNotifiedTimestamp: nowMs,
+          };
+          setReminderSettings(updatedSettings);
+          saveStoredSettings(updatedSettings);
+        } else if (nowMs - lastHourly >= intervalMs) {
+          const { notification } = triggerHourlyReminder(habits, reminderSettings);
+          if (notification) {
+            setActiveToastNotification(notification);
+            setNotifications((prev) => [notification, ...prev]);
+            const updatedSettings = {
+              ...reminderSettings,
+              lastHourlyNotifiedTimestamp: nowMs,
+            };
+            setReminderSettings(updatedSettings);
+            saveStoredSettings(updatedSettings);
+          }
         }
       }
     };

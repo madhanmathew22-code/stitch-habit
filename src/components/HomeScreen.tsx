@@ -260,7 +260,7 @@ export default function HomeScreen({
                 <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-rose-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
                   {unreadCount}
                 </span>
-              ) : reminderSettings.enabled ? (
+              ) : (reminderSettings.enabled || reminderSettings.hourlyEnabled) ? (
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900"></span>
               ) : null}
             </button>
@@ -289,7 +289,7 @@ export default function HomeScreen({
         <DailyAffirmationWidget />
 
         {/* Reminder Schedule Status Pill */}
-        {reminderSettings.enabled && (
+        {(reminderSettings.enabled || reminderSettings.hourlyEnabled) && (
           <button
             type="button"
             onClick={() => setIsNotificationCenterOpen(true)}
@@ -297,12 +297,14 @@ export default function HomeScreen({
             data-purpose="reminder-quick-status"
           >
             <div className="flex items-center gap-2">
-              <span className="text-xs">⏰</span>
-              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white">
-                Daily Reminder set for {formatTimeDisplay(reminderSettings.scheduledTime)}
+              <span className="text-xs">{reminderSettings.hourlyEnabled ? '⏱️' : '⏰'}</span>
+              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">
+                {reminderSettings.hourlyEnabled
+                  ? `Hourly Reminder (Every 1 hr)${reminderSettings.enabled ? ` • Daily at ${formatTimeDisplay(reminderSettings.scheduledTime)}` : ''}`
+                  : `Daily Reminder set for ${formatTimeDisplay(reminderSettings.scheduledTime)}`}
               </span>
             </div>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
               incompleteCount > 0
                 ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60'
                 : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60'

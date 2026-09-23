@@ -1,4 +1,4 @@
-import { Bell, CheckCircle2, X } from 'lucide-react';
+import { Bell, CheckCircle2, Timer, X } from 'lucide-react';
 import { ReminderNotification } from '../types';
 
 interface NotificationToastProps {
@@ -17,25 +17,43 @@ export default function NotificationToast({
   if (!notification) return null;
 
   const hasIncomplete = notification.incompleteHabitIds.length > 0;
+  const isHourly = notification.type === 'hourly_reminder';
 
   return (
     <aside
-      aria-label="Daily reminder alert"
+      aria-label="Habit reminder alert"
       className="fixed top-3 left-4 right-4 z-50 max-w-sm mx-auto animate-in slide-in-from-top-4 duration-300 pointer-events-auto"
     >
       <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-emerald-100 p-3.5 ring-1 ring-slate-900/5">
         <div className="flex items-start gap-3">
           {/* Icon */}
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-emerald-500 flex items-center justify-center text-white shrink-0 shadow-sm shadow-amber-500/20">
-            <Bell className="w-4 h-4 animate-bounce" />
+          <div
+            className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm ${
+              isHourly
+                ? 'bg-gradient-to-tr from-teal-500 to-emerald-500 shadow-teal-500/20'
+                : 'bg-gradient-to-tr from-amber-500 to-emerald-500 shadow-amber-500/20'
+            }`}
+          >
+            {isHourly ? (
+              <Timer className="w-4 h-4 animate-pulse" />
+            ) : (
+              <Bell className="w-4 h-4 animate-bounce" />
+            )}
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0 pr-1">
             <div className="flex items-center justify-between gap-1 mb-0.5">
-              <h4 className="text-xs font-bold text-slate-900 truncate">
-                {notification.title}
-              </h4>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h4 className="text-xs font-bold text-slate-900 truncate">
+                  {notification.title}
+                </h4>
+                {isHourly && (
+                  <span className="px-1.5 py-0.2 rounded-md bg-teal-50 text-teal-700 text-[9px] font-bold border border-teal-200/60 shrink-0">
+                    1-Hr
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] text-slate-400 shrink-0 font-medium">Just now</span>
             </div>
 
